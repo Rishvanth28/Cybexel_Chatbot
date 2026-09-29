@@ -554,7 +554,7 @@ Intent analysis:
 {businesses_str}
 Generate a natural, conversational response that:
 1. Directly answers the user's query
-2. Mentions the number of results found
+2. State exactly that {len(businesses)} result(s) were found; never use a different count
 3. Highlights key details (ratings, distance, price range)
 4. Is concise but informative (2-4 sentences)
 5. Uses a friendly, helpful tone
