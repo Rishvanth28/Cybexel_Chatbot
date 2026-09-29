@@ -1,0 +1,91 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Calibri;}{\f1 Calibri Light;}}
+\paperw11907\paperh16840\margl1440\margr1440\margt1080\margb1080
+\f1\fs36\b AI-Powered Nearby Business and Service Discovery Chatbot\b0\par
+\f0\fs22\i Project Documentation\i0\par\par
+\b 1. Project Overview\b0\par
+This project is an AI-powered chatbot that helps users discover nearby businesses and services in Coimbatore. Users can communicate with the chatbot using natural language, including queries with common spelling mistakes such as \i "any hospitl in gandhipurm"\i0 . The system analyzes the query, identifies the required business category and location, searches the business database, and returns useful results.\par\par
+\b 2. Project Objectives\b0\par
+\bullet\tab Provide a simple conversational interface for business discovery.\par
+\bullet\tab Understand natural-language queries instead of requiring fixed search terms.\par
+\bullet\tab Support spelling correction, synonyms, locations, and nearby searches.\par
+\bullet\tab Display business details such as ratings, distance, phone number, address, and opening hours.\par
+\bullet\tab Continue providing results through a local fallback system when the AI service is unavailable.\par\par
+\b 3. Key Features\b0\par
+\bullet\tab Natural-language business search\par
+\bullet\tab Spelling mistake tolerance\par
+\bullet\tab Search by category and location\par
+\bullet\tab Nearby search using latitude and longitude\par
+\bullet\tab Distance calculation using the Haversine formula\par
+\bullet\tab Business ratings, reviews, phone numbers, addresses, and prices\par
+\bullet\tab Voice input support\par
+\bullet\tab User registration, login, and chat history\par
+\bullet\tab Admin interface for managing business data\par\par
+\b 4. Technology Stack\b0\par
+\b Frontend:\b0 HTML, CSS, and Vanilla JavaScript\par
+\b Backend:\b0 Django and Django REST Framework\par
+\b AI/NLU:\b0 Groq API using the openai/gpt-oss-120b model\par
+\b Database:\b0 SQLite\par
+\b Location Processing:\b0 Haversine distance calculation\par
+\b Authentication:\b0 Django authentication system\par\par
+\b 5. System Workflow\b0\par
+1. The user enters a natural-language query in the chatbot interface.\par
+2. The Groq AI model analyzes the query and extracts intent, category, location, result count, and sorting preference.\par
+3. The application normalizes common spelling mistakes and synonyms.\par
+4. The backend searches the SQLite database for matching businesses.\par
+5. Results are filtered based on category, location, and distance.\par
+6. The chatbot generates a concise response using the returned business data.\par
+7. The frontend displays the response and business cards to the user.\par\par
+\b 6. Sample Input\b0\par
+\b API URL:\b0 http://127.0.0.1:8000/api/chat/\par\par
+\b Request:\b0\par
+{\par
+  "query": "any hospitl in gandhipurm",\par
+  "latitude": 11.0168,\par
+  "longitude": 76.9558\par
+}\par\par
+The chatbot interprets \i hospitl\i0  as Hospital and \i gandhipurm\i0  as Gandhipuram.\par\par
+\b 7. Sample Output\b0\par
+{\par
+  "success": true,\par
+  "message": "I found 5 hospitals near Gandhipuram.",\par
+  "businesses": [\par
+    {\par
+      "id": "BUS0109",\par
+      "name": "Health General Hospital Plus",\par
+      "category": "Hospital",\par
+      "area": "Gandhipuram",\par
+      "rating": 4.5,\par
+      "review_count": 727,\par
+      "phone": "9456724205",\par
+      "distance_km": 0.88\par
+    },\par
+    {\par
+      "id": "BUS0129",\par
+      "name": "Life Clinic Hub",\par
+      "category": "Hospital",\par
+      "area": "Gandhipuram",\par
+      "rating": 4.8,\par
+      "review_count": 572,\par
+      "phone": "9495756175",\par
+      "distance_km": 1.35\par
+    }\par
+  ],\par
+  "intent_data": {\par
+    "intent": "business_search",\par
+    "business_type": "Hospital",\par
+    "location": "Gandhipuram",\par
+    "nearby": false,\par
+    "sort_by": "relevance"\par
+  }\par
+}\par\par
+\b 8. API Endpoints\b0\par
+\b POST /api/chat/\b0 - Process a natural-language chat query and return business results.\par
+\b GET /api/search/\b0 - Search businesses using query parameters.\par
+\b GET /api/businesses/<id>/\b0 - Return details for one business.\par
+\b GET /api/categories/\b0 - Return available business categories.\par
+\b GET /api/areas/\b0 - Return available locations.\par
+\b GET /health\b0 - Return application health status.\par\par
+\b 9. Conclusion\b0\par
+The project combines conversational AI, location-based search, and a structured business database to provide an easy-to-use local discovery service. Its natural-language interface, typo tolerance, distance-based filtering, and fallback processing make it practical for real-world users who may not use exact search terms.\par
+}
