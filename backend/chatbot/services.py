@@ -1,5 +1,6 @@
 import json
 import re
+from difflib import get_close_matches
 from groq import Groq
 from django.conf import settings
 
@@ -121,6 +122,25 @@ COIMBATORE_AREAS = {
 # Default result count when user doesn't specify
 DEFAULT_RESULT_COUNT = 5
 MAX_RESULT_COUNT = 20
+
+
+def _normalize_query_for_matching(query):
+    """Correct close matches for known categories and Coimbatore areas."""
+    candidates = {
+        word
+        for phrase in list(CATEGORY_SYNONYMS) + list(COIMBATORE_AREAS)
+        for word in phrase.split()
+        if len(word) >= 4
+    }
+
+    def replace_word(match):
+        word = match.group(0)
+        if word in candidates or len(word) < 4:
+            return word
+        match_found = get_close_matches(word, candidates, n=1, cutoff=0.78)
+        return match_found[0] if match_found else word
+
+    return re.sub(r"[a-z]+", replace_word, query.lower())
 
 
 def extract_intent_with_groq(query, conversation_context=None):
@@ -311,11 +331,20 @@ def extract_intent_fallback(query, conversation_context=None):
     Fallback intent extraction when Groq API fails.
     Uses keyword matching and heuristics.
     """
-    query_lower = query.lower().strip()
+    query_lower = _normalize_query_for_matching(query.strip())
 
     # Check for greetings
     greetings = ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening']
-    if any(g in query_lower for g in greetings) and len(query_lower) < 30:
+    has_greeting = any(
+        re.search(r'\b' + re.escape(greeting) + r'\b', query_lower)
+        for greeting in greetings
+    )
+    if not has_greeting and len(query_lower.split()) <= 3:
+        has_greeting = any(
+            get_close_matches(word, ['hello', 'hi', 'hey'], n=1, cutoff=0.78)
+            for word in query_lower.split()
+        )
+    if has_greeting and len(query_lower) < 30:
         return {
             'intent': 'greeting',
             'business_type': None,
@@ -459,8 +488,19 @@ def extract_intent(query, conversation_context=None):
     Uses Groq LLM with fallback to keyword-based extraction.
     """
     result = extract_intent_with_groq(query, conversation_context)
-    if result and result['intent'] != 'business_search' or (result and result.get('business_type')):
-        return result
+    if result:
+        # If Groq returned a valid business_search with a business type, use it
+        if result.get('intent') == 'business_search' and result.get('business_type'):
+            return result
+        # If Groq returned a non-business intent (greeting, help, etc.), trust it
+        if result.get('intent') in ('greeting', 'help', 'general_question', 'follow_up'):
+            return result
+        # If Groq returned business_search but no business type, try fallback
+        if result.get('intent') == 'business_search' and not result.get('business_type'):
+            fallback = extract_intent_fallback(query, conversation_context)
+            if fallback and fallback.get('business_type'):
+                return fallback
+            return result
     return extract_intent_fallback(query, conversation_context)
 
 

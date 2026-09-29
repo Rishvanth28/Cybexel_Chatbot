@@ -8,7 +8,9 @@ const state = {
     locationEnabled: false,
     isRecording: false,
     recognition: null,
-    conversationContext: [], // Stores conversation history for follow-up queries
+    conversationContext: [],
+    currentUser: null,
+    authMode: 'login', // 'login' or 'register'
 };
 
 // DOM Elements
@@ -24,9 +26,27 @@ const useMockLocation = document.getElementById('useMockLocation');
 const clearChat = document.getElementById('clearChat');
 const welcomeScreen = document.getElementById('welcomeScreen');
 
+// Auth DOM Elements
+const authBtn = document.getElementById('authBtn');
+const authBtnText = document.getElementById('authBtnText');
+const authOverlay = document.getElementById('authOverlay');
+const authClose = document.getElementById('authClose');
+const authTitle = document.getElementById('authTitle');
+const authSubtitle = document.getElementById('authSubtitle');
+const authForm = document.getElementById('authForm');
+const authEmail = document.getElementById('authEmail');
+const emailField = document.getElementById('emailField');
+const authUsername = document.getElementById('authUsername');
+const authPassword = document.getElementById('authPassword');
+const authError = document.getElementById('authError');
+const authSubmit = document.getElementById('authSubmit');
+const authSwitchText = document.getElementById('authSwitchText');
+const authSwitchLink = document.getElementById('authSwitchLink');
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
+    checkAuthState();
     messageInput.focus();
 });
 
@@ -39,6 +59,15 @@ function setupEventListeners() {
     locationBtn.addEventListener('click', enableLocation);
     useMockLocation.addEventListener('click', useMockCoimbatore);
     clearChat.addEventListener('click', clearConversation);
+
+    // Auth event listeners
+    authBtn.addEventListener('click', handleAuthBtnClick);
+    authClose.addEventListener('click', closeAuthModal);
+    authOverlay.addEventListener('click', (e) => {
+        if (e.target === authOverlay) closeAuthModal();
+    });
+    authSwitchLink.addEventListener('click', toggleAuthMode);
+    authForm.addEventListener('submit', handleAuthSubmit);
 
     // Quick action buttons
     document.querySelectorAll('.quick-action').forEach(btn => {
@@ -55,6 +84,213 @@ function setupEventListeners() {
             sendMessage();
         });
     });
+}
+
+// ============================================
+// AUTH FUNCTIONS
+// ============================================
+
+async function checkAuthState() {
+    try {
+        const response = await fetch('/api/auth/me/', {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        if (data.success && data.user) {
+            state.currentUser = data.user;
+            updateAuthUI();
+            loadChatHistory();
+        }
+    } catch (error) {
+        console.error('Auth check failed:', error);
+    }
+}
+
+function updateAuthUI() {
+    if (state.currentUser) {
+        authBtnText.textContent = state.currentUser.username;
+        authBtn.classList.add('logged-in');
+        authBtn.title = 'Logout';
+    } else {
+        authBtnText.textContent = 'Login';
+        authBtn.classList.remove('logged-in');
+        authBtn.title = 'Login / Register';
+    }
+}
+
+function handleAuthBtnClick() {
+    if (state.currentUser) {
+        logoutUser();
+    } else {
+        openAuthModal();
+    }
+}
+
+function openAuthModal() {
+    authOverlay.classList.add('visible');
+    authError.textContent = '';
+    authUsername.focus();
+}
+
+function closeAuthModal() {
+    authOverlay.classList.remove('visible');
+    authForm.reset();
+    authError.textContent = '';
+}
+
+function toggleAuthMode(e) {
+    e.preventDefault();
+    state.authMode = state.authMode === 'login' ? 'register' : 'login';
+
+    if (state.authMode === 'register') {
+        authTitle.textContent = 'Create Account';
+        authSubtitle.textContent = 'Register to save your chat history';
+        authSubmit.textContent = 'Register';
+        emailField.style.display = 'block';
+        authSwitchText.textContent = 'Already have an account?';
+        authSwitchLink.textContent = 'Login';
+    } else {
+        authTitle.textContent = 'Welcome Back';
+        authSubtitle.textContent = 'Login to save your chat history';
+        authSubmit.textContent = 'Login';
+        emailField.style.display = 'none';
+        authSwitchText.textContent = "Don't have an account?";
+        authSwitchLink.textContent = 'Register';
+    }
+}
+
+async function handleAuthSubmit(e) {
+    e.preventDefault();
+    authError.textContent = '';
+
+    const username = authUsername.value.trim();
+    const password = authPassword.value;
+
+    if (!username || !password) {
+        authError.textContent = 'Please fill in all fields.';
+        return;
+    }
+
+    if (state.authMode === 'register') {
+        const email = authEmail.value.trim();
+        if (!email) {
+            authError.textContent = 'Please fill in all fields.';
+            return;
+        }
+        if (password.length < 6) {
+            authError.textContent = 'Password must be at least 6 characters.';
+            return;
+        }
+        await registerUser(username, email, password);
+    } else {
+        await loginUser(username, password);
+    }
+}
+
+async function registerUser(username, email, password) {
+    try {
+        const response = await fetch('/api/auth/register/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username, email, password })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            state.currentUser = data.user;
+            updateAuthUI();
+            closeAuthModal();
+            loadChatHistory();
+        } else {
+            authError.textContent = data.message || 'Registration failed.';
+        }
+    } catch (error) {
+        authError.textContent = 'Connection error. Please try again.';
+        console.error('Register error:', error);
+    }
+}
+
+async function loginUser(username, password) {
+    try {
+        const response = await fetch('/api/auth/login/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            state.currentUser = data.user;
+            updateAuthUI();
+            closeAuthModal();
+            loadChatHistory();
+        } else {
+            authError.textContent = data.message || 'Login failed.';
+        }
+    } catch (error) {
+        authError.textContent = 'Connection error. Please try again.';
+        console.error('Login error:', error);
+    }
+}
+
+async function logoutUser() {
+    try {
+        const response = await fetch('/api/auth/logout/', {
+            method: 'POST',
+            credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            state.currentUser = null;
+            state.conversationContext = [];
+            updateAuthUI();
+            clearConversation();
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
+}
+
+async function loadChatHistory() {
+    if (!state.currentUser) return;
+
+    try {
+        const response = await fetch('/api/auth/history/', {
+            credentials: 'include'
+        });
+        const data = await response.json();
+
+        if (data.success && data.messages.length > 0) {
+            // Hide welcome screen
+            welcomeScreen.style.display = 'none';
+
+            // Clear current messages
+            chatMessages.innerHTML = '';
+
+            // Load messages from DB
+            data.messages.forEach(msg => {
+                if (msg.role === 'user') {
+                    addMessage(msg.content, 'user');
+                } else {
+                    addBotResponse(msg.content, msg.businesses || []);
+                }
+            });
+
+            // Rebuild conversation context from history
+            state.conversationContext = data.messages.slice(-10).map(msg => ({
+                role: msg.role,
+                content: msg.content
+            }));
+        }
+    } catch (error) {
+        console.error('Failed to load chat history:', error);
+    }
 }
 
 function enableLocation() {

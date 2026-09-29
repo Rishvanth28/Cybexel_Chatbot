@@ -3,7 +3,10 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from .models import Business
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+from django.db import IntegrityError
+from .models import Business, ChatMessage
 from .services import extract_intent, generate_response
 from .utils import search_businesses, get_area_coordinates
 
@@ -11,6 +14,138 @@ from .utils import search_businesses, get_area_coordinates
 def index(request):
     """Render the chat interface."""
     return render(request, 'chatbot/index.html')
+
+
+@require_http_methods(["GET"])
+def health(request):
+    """Return a simple liveness response for monitoring and local checks."""
+    return JsonResponse({'status': 'ok'})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def register(request):
+    """Register a new user."""
+    try:
+        data = json.loads(request.body)
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+
+        if not username or not email or not password:
+            return JsonResponse({'success': False, 'message': 'Username, email, and password are required.'})
+
+        if len(password) < 6:
+            return JsonResponse({'success': False, 'message': 'Password must be at least 6 characters.'})
+
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({'success': False, 'message': 'Username already exists.'})
+
+        if User.objects.filter(email=email).exists():
+            return JsonResponse({'success': False, 'message': 'Email already registered.'})
+
+        user = User.objects.create_user(username=username, email=email, password=password)
+        login(request, user)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Registration successful.',
+            'user': {'id': user.id, 'username': user.username, 'email': user.email}
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid request format.'})
+    except IntegrityError:
+        return JsonResponse({'success': False, 'message': 'Username or email already exists.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'An error occurred: {str(e)}'})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def user_login(request):
+    """Log in an existing user."""
+    try:
+        data = json.loads(request.body)
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+
+        if not username or not password:
+            return JsonResponse({'success': False, 'message': 'Username and password are required.'})
+
+        user = authenticate(request, username=username, password=password)
+
+        if user is not None:
+            login(request, user)
+            return JsonResponse({
+                'success': True,
+                'message': 'Login successful.',
+                'user': {'id': user.id, 'username': user.username, 'email': user.email}
+            })
+        else:
+            return JsonResponse({'success': False, 'message': 'Invalid username or password.'})
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid request format.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'An error occurred: {str(e)}'})
+
+
+@require_http_methods(["POST"])
+def user_logout(request):
+    """Log out the current user."""
+    logout(request)
+    return JsonResponse({'success': True, 'message': 'Logged out successfully.'})
+
+
+@require_http_methods(["GET"])
+def get_current_user(request):
+    """Return the currently logged-in user's info."""
+    if request.user.is_authenticated:
+        return JsonResponse({
+            'success': True,
+            'user': {
+                'id': request.user.id,
+                'username': request.user.username,
+                'email': request.user.email
+            }
+        })
+    return JsonResponse({'success': False, 'user': None})
+
+
+@require_http_methods(["GET"])
+def get_chat_history(request):
+    """Get chat history for the logged-in user."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'message': 'Authentication required.', 'messages': []})
+
+    messages = ChatMessage.objects.filter(user=request.user).order_by('created_at')
+    return JsonResponse({
+        'success': True,
+        'messages': [
+            {
+                'id': msg.id,
+                'role': msg.role,
+                'content': msg.content,
+                'businesses': msg.businesses,
+                'intent_data': msg.intent_data,
+                'created_at': msg.created_at.isoformat()
+            }
+            for msg in messages
+        ]
+    })
+
+
+def save_chat_message(request, role, content, businesses=None, intent_data=None):
+    """Save a chat message to DB if user is authenticated."""
+    if request.user.is_authenticated:
+        ChatMessage.objects.create(
+            user=request.user,
+            role=role,
+            content=content,
+            businesses=businesses or [],
+            intent_data=intent_data or {}
+        )
 
 
 @csrf_exempt
@@ -39,6 +174,9 @@ def chat(request):
                 'businesses': []
             })
 
+        # Save user message to DB if authenticated
+        save_chat_message(request, 'user', query)
+
         # Step 1: Extract intent using LLM
         intent_data = extract_intent(query, conversation_context)
         intent = intent_data.get('intent', 'business_search')
@@ -52,6 +190,7 @@ def chat(request):
         # Step 2: Handle different intents
         if intent == 'greeting':
             message = generate_response(intent_data, [], user_lat, user_lon)
+            save_chat_message(request, 'assistant', message, [], intent_data)
             return JsonResponse({
                 'success': True,
                 'message': message,
@@ -61,6 +200,7 @@ def chat(request):
 
         if intent == 'help':
             message = generate_response(intent_data, [], user_lat, user_lon)
+            save_chat_message(request, 'assistant', message, [], intent_data)
             return JsonResponse({
                 'success': True,
                 'message': message,
@@ -71,6 +211,7 @@ def chat(request):
         if intent == 'general_question':
             # For general questions, use LLM to answer without searching businesses
             message = generate_response(intent_data, [], user_lat, user_lon)
+            save_chat_message(request, 'assistant', message, [], intent_data)
             return JsonResponse({
                 'success': True,
                 'message': message,
@@ -97,6 +238,7 @@ def chat(request):
 
             if not business_type:
                 message = "I'm not sure what you're referring to. Could you please search for something first?"
+                save_chat_message(request, 'assistant', message, [], intent_data)
                 return JsonResponse({
                     'success': True,
                     'message': message,
@@ -138,6 +280,7 @@ def chat(request):
                 })
 
             message = generate_response(intent_data, businesses, user_lat, user_lon)
+            save_chat_message(request, 'assistant', message, businesses, intent_data)
             return JsonResponse({
                 'success': True,
                 'message': message,
@@ -148,6 +291,7 @@ def chat(request):
         # Step 3: Business search intent
         if not business_type:
             message = "I couldn't understand what you're looking for. Try asking for hotels, restaurants, hospitals, salons, supermarkets, textiles, automobile services, gyms, electronics, education, or real estate."
+            save_chat_message(request, 'assistant', message, [], intent_data)
             return JsonResponse({
                 'success': True,
                 'message': message,
@@ -190,6 +334,9 @@ def chat(request):
 
         # Step 6: Generate natural language response
         message = generate_response(intent_data, businesses, user_lat, user_lon)
+
+        # Save assistant message to DB if authenticated
+        save_chat_message(request, 'assistant', message, businesses, intent_data)
 
         return JsonResponse({
             'success': True,
