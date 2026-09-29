@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Finder — AI-Powered Local Discovery</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+</head>
+<body>
+    <div class="bg-effects">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="chat-header">
+            <div class="header-glow"></div>
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon-wrapper">
+                        <span class="logo-icon">🤖</span>
+                        <div class="logo-pulse"></div>
+                        <div class="logo-ring"></div>
+                    </div>
+                    <div class="logo-text">
+                        <h1>Business Finder</h1>
+                        <p class="subtitle">AI-Powered Local Discovery</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button id="locationBtn" class="btn-location" title="Get your location">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span id="locationStatus">Enable Location</span>
+                    </button>
+                    <button id="clearChat" class="btn-clear" title="Start new conversation">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                        <span>New Chat</span>
+                    </button>
+                </div>
+            </div>
+            <div class="location-bar" id="locationBar">
+                <div class="location-info">
+                    <span class="location-dot"></span>
+                    <span>Location: <strong id="locationText">Not set</strong></span>
+                </div>
+                <button id="useMockLocation" class="btn-mock">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                    Use Coimbatore Center
+                </button>
+            </div>
+        </header>
+
+        <!-- Chat Messages -->
+        <main class="chat-messages" id="chatMessages">
+            <div class="welcome-screen" id="welcomeScreen">
+                <div class="welcome-avatar">
+                    <span>🤖</span>
+                    <div class="welcome-pulse"></div>
+                    <div class="welcome-ring"></div>
+                </div>
+                <h2 class="welcome-title">Hello! I'm your AI assistant</h2>
+                <p class="welcome-desc">I can help you discover local businesses in Coimbatore. Try asking me anything!</p>
+                <div class="category-chips">
+                    <span class="chip"><span class="chip-icon">🏨</span> Hotels</span>
+                    <span class="chip"><span class="chip-icon">🍽️</span> Restaurants</span>
+                    <span class="chip"><span class="chip-icon">🏥</span> Hospitals</span>
+                    <span class="chip"><span class="chip-icon">💇</span> Salons</span>
+                    <span class="chip"><span class="chip-icon">🛒</span> Supermarkets</span>
+                    <span class="chip"><span class="chip-icon">👗</span> Textiles</span>
+                    <span class="chip"><span class="chip-icon">🚗</span> Auto Services</span>
+                    <span class="chip"><span class="chip-icon">💪</span> Gyms</span>
+                    <span class="chip"><span class="chip-icon">🔌</span> Electronics</span>
+                    <span class="chip"><span class="chip-icon">📚</span> Education</span>
+                    <span class="chip"><span class="chip-icon">🏠</span> Real Estate</span>
+                </div>
+                <div class="welcome-examples">
+                    <p class="examples-label">Try asking</p>
+                    <div class="example-queries">
+                        <button class="example-query" data-query="Find hotels near me">
+                            <span class="eq-icon">🔍</span>
+                            <span>"Find hotels near me"</span>
+                            <span class="eq-arrow">→</span>
+                        </button>
+                        <button class="example-query" data-query="Show restaurants in Gandhipuram">
+                            <span class="eq-icon">🔍</span>
+                            <span>"Show restaurants in Gandhipuram"</span>
+                            <span class="eq-arrow">→</span>
+                        </button>
+                        <button class="example-query" data-query="Any hospitals within 10 km">
+                            <span class="eq-icon">🔍</span>
+                            <span>"Any hospitals within 10 km"</span>
+                            <span class="eq-arrow">→</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="typing-avatar">🤖</div>
+            <div class="typing-bubble">
+                <div class="typing-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <footer class="chat-input-area">
+            <div class="input-glow"></div>
+            <div class="input-container">
+                <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="Ask about nearby businesses..."
+                    autocomplete="off"
+                >
+                <button id="voiceBtn" class="btn-voice" title="Voice input">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                </button>
+                <button id="sendBtn" class="btn-send" title="Send message">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </div>
+            <div class="quick-actions">
+                <button class="quick-action" data-query="Hotels near me">
+                    <span class="qa-icon">🏨</span> Hotels near me
+                </button>
+                <button class="quick-action" data-query="Find restaurants in Gandhipuram">
+                    <span class="qa-icon">🍽️</span> Restaurants
+                </button>
+                <button class="quick-action" data-query="Any hospitals within 10 km">
+                    <span class="qa-icon">🏥</span> Hospitals
+                </button>
+                <button class="quick-action" data-query="Show textile shops in Coimbatore">
+                    <span class="qa-icon">👗</span> Textiles
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <script src="{% static 'js/chat.js' %}"></script>
+</body>
+</html>
